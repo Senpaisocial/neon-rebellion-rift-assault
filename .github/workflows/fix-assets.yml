@@ -10,37 +10,29 @@ on:
 permissions:
   contents: write
 
-env:
-  MAGICK_THREAD_LIMIT: 2
-
 jobs:
   repair:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install image conversion tools
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+      - name: Generate safe production atlas and Neon Jungle background
+        run: python tools/build_safe_assets.py
+      - name: Point game to generated safe assets
         run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick libheif-examples
-      - name: Inspect source images
+          sed -i "s#assets/atlas.avif#assets/atlas-safe.png#g" index.html
+          sed -i "s#assets/neon-jungle.avif#assets/neon-jungle-safe.webp#g" index.html
+      - name: Validate generated files
         run: |
-          identify assets/atlas.avif
-          identify assets/neon-jungle.avif
-      - name: Convert AVIF assets to browser-safe WebP
-        run: |
-          convert assets/atlas.avif -alpha off -transparent '#000000' -quality 88 assets/atlas-fixed.webp
-          convert assets/neon-jungle.avif -alpha off -quality 88 assets/neon-jungle-fixed.webp
-          identify assets/atlas-fixed.webp
-          identify assets/neon-jungle-fixed.webp
-      - name: Point game to repaired assets
-        run: |
-          sed -i "s#assets/atlas.avif#assets/atlas-fixed.webp#g" index.html
-          sed -i "s#assets/neon-jungle.avif#assets/neon-jungle-fixed.webp#g" index.html
+          test -s assets/atlas-safe.png
+          test -s assets/neon-jungle-safe.webp
+          grep -q 'assets/atlas-safe.png' index.html
       - name: Commit repaired assets
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/atlas-fixed.webp assets/neon-jungle-fixed.webp index.html
-          git commit -m 'Repair visible game assets' || exit 0
+          git add assets/atlas-safe.png assets/neon-jungle-safe.webp index.html
+          git commit -m 'Generate visible production game assets' || exit 0
           git push
