@@ -18,6 +18,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check pillow
+      - name: Make generator compatible with current build
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/build_safe_assets.py')
+          s=p.read_text()
+          s=s.replace("r'const MANIFEST=(\\{.*?\\});\\s*const A='", "r'const MANIFEST=(\\{.*?\\});'")
+          p.write_text(s)
+          PY
       - name: Generate safe production atlas and Neon Jungle background
         run: python tools/build_safe_assets.py
       - name: Point game to generated safe assets
